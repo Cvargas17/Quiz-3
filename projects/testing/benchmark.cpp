@@ -2,80 +2,131 @@
 #include <vector>
 #include <chrono>
 #include <random>
-#include <cmath>
-#include <iomanip>
+#include <fstream>
+#include <algorithm>
 
-using namespace std;
-using namespace std::chrono;
 
-// Implementación de búsqueda binaria
-int busquedaBinaria(const vector<int>& arr, int target) {
-    int left = 0;
-    int right = arr.size() - 1;
-    
-    while (left <= right) {
-        int mid = left + (right - left) / 2;
-        if (arr[mid] == target) return mid;
-        if (arr[mid] < target) left = mid + 1;
-        else right = mid - 1;
+namespace {
+
+int busquedaBinaria(const std::vector<int>& arr, int objetivo) {
+    int izquierda = 0;
+    int derecha = static_cast<int>(arr.size()) - 1;
+
+    while (izquierda <= derecha) {
+        int medio = izquierda + (derecha - izquierda) / 2;
+
+        if (arr[medio] == objetivo)
+            return medio;
+        if (arr[medio] < objetivo)
+            izquierda = medio + 1;
+        else
+            derecha = medio - 1;
     }
     return -1;
 }
 
-int main() {
-    // Tamaños de arreglo a evaluar (multiplicando por 10 cada iteración)
-    vector<int> sizes = {1000, 10000, 100000, 1000000, 10000000, 100000000};
-    int num_queries = 5000000; // 5 millones de búsquedas para hacer el tiempo medible
-    
-    cout << left << setw(12) << "N" 
-         << setw(15) << "Tiempo (ms)" 
-         << setw(15) << "log2(N)" 
-         << "Diferencia de Tiempo" << endl;
-    cout << string(60, '-') << endl;
-    
-    double tiempo_anterior = 0;
+void merge(std::vector<int>& arr, int left, int mid, int right, std::vector<int>& temp) {
+    int i = left;
+    int j = mid + 1;
+    int k = left;
 
-    for (int n : sizes) {
-        // 1. Generar arreglo ordenado
-        vector<int> arr(n);
-        for (int i = 0; i < n; i++) {
-            arr[i] = i * 2; 
-        }
-
-        // 2. Generar consultas aleatorias
-        mt19937 gen(42); 
-        uniform_int_distribution<> dist(0, n * 2);
-        vector<int> queries(num_queries);
-        for (int i = 0; i < num_queries; i++) {
-            queries[i] = dist(gen);
-        }
-
-        // 3. Medir el tiempo de ejecución
-        long long checksum = 0; // Evita que el compilador elimine el ciclo por optimización (Dead Code Elimination)
-        
-        auto start = high_resolution_clock::now();
-        
-        for (int q : queries) {
-            checksum += busquedaBinaria(arr, q);
-        }
-        
-        auto end = high_resolution_clock::now();
-        auto duration = duration_cast<milliseconds>(end - start).count();
-
-        // 4. Mostrar resultados
-        cout << left << setw(12) << n 
-             << setw(15) << duration 
-             << setw(15) << log2(n);
-             
-        if (tiempo_anterior > 0) {
-            cout << "+" << (duration - tiempo_anterior) << " ms";
+    while (i <= mid && j <= right) {
+        if (arr[i] <= arr[j]) {
+            temp[k++] = arr[i++];
         } else {
-            cout << "-";
+            temp[k++] = arr[j++];
         }
-        cout << endl;
-        
-        tiempo_anterior = duration;
     }
-    
+
+    while (i <= mid) {
+        temp[k++] = arr[i++];
+    }
+
+    while (j <= right) {
+        temp[k++] = arr[j++];
+    }
+
+    for (i = left; i <= right; i++) {
+        arr[i] = temp[i];
+    }
+}
+
+void mergeSortAux(std::vector<int>& arr, int left, int right, std::vector<int>& temp) {
+    if (left < right) {
+        int mid = left + (right - left) / 2;
+        mergeSortAux(arr, left, mid, temp);
+        mergeSortAux(arr, mid + 1, right, temp);
+        merge(arr, left, mid, right, temp);
+    }
+}
+
+void mergeSort(std::vector<int>& arr) {
+    if (arr.empty()) return;
+    std::vector<int> temp(arr.size());
+    mergeSortAux(arr, 0, static_cast<int>(arr.size()) - 1, temp);
+}
+
+}
+
+int main() {
+    std::ios_base::sync_with_stdio(false);
+    std::cin.tie(nullptr);
+
+    std::vector<int> size = { 1000, 5000, 10000, 50000, 100000, 500000, 1000000 };
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dis(1, 10000000);
+
+    std::ofstream archivoBinaria("benchmark_busqueda_binaria.csv");
+    archivoBinaria << "Tamano_n,Tiempo_Promedio_ns\n";
+
+    std::ofstream archivoMerge("benchmark_mergesort.csv");
+    archivoMerge << "Tamano_n,Tiempo_Promedio_ms\n";
+
+
+    for (int n : size) {
+        // --- Benchmark Búsqueda Binaria ---
+        std::vector<int> arrOrdenado(n);
+        for (int i = 0; i < n; i++) arrOrdenado[i] = i * 2;
+        int objetivo = arrOrdenado[n / 2];
+
+        int repeticionesBin = 1000;
+        auto inicioBin = std::chrono::high_resolution_clock::now();
+        for (int r = 0; r < repeticionesBin; r++) {
+            volatile int resultado = busquedaBinaria(arrOrdenado, objetivo);
+            (void)resultado;
+        }
+        auto finBin = std::chrono::high_resolution_clock::now();
+        double tiempoPromBin = std::chrono::duration<double, std::nano>(finBin - inicioBin).count() / repeticionesBin;
+
+        archivoBinaria << n << "," << tiempoPromBin << "\n";
+        std::cout << "[Busqueda Binaria] n = " << n << " -> " << tiempoPromBin << " ns\n";
+
+        // --- Benchmark Merge Sort ---
+        int repeticionesMerge = 5;
+        double tiempoTotalMerge = 0.0;
+
+        for (int r = 0; r < repeticionesMerge; r++) {
+            std::vector<int> arrDesordenado(n);
+            for (int i = 0; i < n; i++) {
+                arrDesordenado[i] = dis(gen);
+            }
+
+            auto inicioMerge = std::chrono::high_resolution_clock::now();
+            mergeSort(arrDesordenado);
+            auto finMerge = std::chrono::high_resolution_clock::now();
+
+            tiempoTotalMerge += std::chrono::duration<double, std::milli>(finMerge - inicioMerge).count();
+        }
+
+        double tiempoPromMerge = tiempoTotalMerge / repeticionesMerge;
+        archivoMerge << n << "," << tiempoPromMerge << "\n";
+        std::cout << "[Merge Sort] n = " << n << " -> " << tiempoPromMerge << " ms\n";
+    }
+
+    archivoBinaria.close();
+    archivoMerge.close();
+
     return 0;
 }
