@@ -8,3 +8,8 @@ Busqueda Binaria:
 Merge Sort:
 
 <img width="752" height="452" alt="f2a40d38-82c7-4e3f-aab1-28d8279e7262" src="https://github.com/user-attachments/assets/3b2eaf07-f93c-4fe1-a076-0f178a757e92" />
+
+
+Integrantes:
+Christian Vargas Alvarado
+Jose Daniel Vargas Gomez
