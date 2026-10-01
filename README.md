@@ -11,5 +11,5 @@ Merge Sort:
 
 
 Integrantes:
-Christian Vargas Alvarado
+Christian Vargas Alvarado /
 Jose Daniel Vargas Gomez
